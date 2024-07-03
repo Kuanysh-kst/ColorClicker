@@ -6,7 +6,6 @@ import java.awt.event.InputEvent;
 import java.awt.image.BufferedImage;
 
 public class ColorClicker extends JPanel {
-    private static final Color GREEN_FLOWER = new Color(46, 161, 0); // Это точный
     private static final Color GRAY_BOMB = new Color(128, 128, 128); // Бурда нужно заментьЗамените на точный цвет
 
     //также нужно запелить на синий кристал клик, и отступы от серых бомб
@@ -14,14 +13,14 @@ public class ColorClicker extends JPanel {
     private BufferedImage screenCapture;
 
     public ColorClicker() {
-        Timer timer = new Timer(100, e -> {
+        Timer timer = new Timer(10, e -> {
             try {
                 Robot robot = new Robot();
                 screenCapture = robot.createScreenCapture(WORK_AREA);
                 for (int x = 0; x < screenCapture.getWidth(); x++) {
                     for (int y = 0; y < screenCapture.getHeight(); y++) {
                         Color color = new Color(screenCapture.getRGB(x, y));
-                        if (isGreenFlower(color) && !isGrayBombNearby(screenCapture, x, y)) {
+                        if (ColorChecker.itsGreen(color) && !isGrayBombNearby(screenCapture, x, y)) {
                             int absoluteX = x + WORK_AREA.x;
                             int absoluteY = y + WORK_AREA.y;
                             robot.mouseMove(absoluteX, absoluteY);
@@ -36,10 +35,6 @@ public class ColorClicker extends JPanel {
             }
         });
         timer.start();
-    }
-
-    private boolean isGreenFlower(Color color) {
-        return color.equals(GREEN_FLOWER);
     }
 
     private boolean isGrayBombNearby(BufferedImage image, int x, int y) {
