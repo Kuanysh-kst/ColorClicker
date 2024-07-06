@@ -1,26 +1,61 @@
 package org.example;
 
-import javax.swing.*;
-import java.awt.*;
+import com.github.kwhat.jnativehook.GlobalScreen;
+import com.github.kwhat.jnativehook.keyboard.NativeKeyEvent;
+import com.github.kwhat.jnativehook.keyboard.NativeKeyListener;
+
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
+import javax.swing.Timer;
+import java.awt.AWTException;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.Graphics;
+import java.awt.Insets;
+import java.awt.Rectangle;
+import java.awt.Robot;
+import java.awt.Toolkit;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.InputEvent;
 import java.awt.image.BufferedImage;
 
-public class ColorClicker extends JPanel {
-    private static final Color GRAY_BOMB = new Color(128, 128, 128); // Бурда нужно заментьЗамените на точный цвет
 
-    //также нужно запелить на синий кристал клик, и отступы от серых бомб
-    private static final Rectangle WORK_AREA = new Rectangle(100, 100, 800, 600);
+public class ColorClicker extends JPanel implements NativeKeyListener {
+    private static Rectangle WORK_AREA;
     private BufferedImage screenCapture;
+    private final Timer timer;
+    private final JButton startStopButton;
+    private boolean running = false;
 
     public ColorClicker() {
-        Timer timer = new Timer(10, e -> {
+        setLayout(new BorderLayout());
+
+        startStopButton = new JButton("Старт");
+        startStopButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (running) {
+                    stopClicking();
+                } else {
+                    startClicking();
+                }
+            }
+        });
+
+        add(startStopButton, BorderLayout.SOUTH);
+
+        timer = new Timer(10, e -> {
             try {
                 Robot robot = new Robot();
                 screenCapture = robot.createScreenCapture(WORK_AREA);
                 for (int x = 0; x < screenCapture.getWidth(); x++) {
                     for (int y = 0; y < screenCapture.getHeight(); y++) {
                         Color color = new Color(screenCapture.getRGB(x, y));
-                        if (ColorChecker.itsGreen(color) && !isGrayBombNearby(screenCapture, x, y)) {
+                        if (ColorChecker.itsVersion2(color)) {
                             int absoluteX = x + WORK_AREA.x;
                             int absoluteY = y + WORK_AREA.y;
                             robot.mouseMove(absoluteX, absoluteY);
@@ -34,22 +69,25 @@ public class ColorClicker extends JPanel {
                 ex.printStackTrace();
             }
         });
-        timer.start();
+
+        try {
+            GlobalScreen.registerNativeHook();
+            GlobalScreen.addNativeKeyListener(this);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
     }
 
-    private boolean isGrayBombNearby(BufferedImage image, int x, int y) {
-        int radius = 5;
-        for (int dx = -radius; dx <= radius; dx++) {
-            for (int dy = -radius; dy <= radius; dy++) {
-                if (x + dx >= 0 && x + dx < image.getWidth() && y + dy >= 0 && y + dy < image.getHeight()) {
-                    Color nearbyColor = new Color(image.getRGB(x + dx, y + dy));
-                    if (nearbyColor.equals(GRAY_BOMB)) {
-                        return true;
-                    }
-                }
-            }
-        }
-        return false;
+    private void startClicking() {
+        timer.start();
+        startStopButton.setText("Стоп");
+        running = true;
+    }
+
+    private void stopClicking() {
+        timer.stop();
+        startStopButton.setText("Старт");
+        running = false;
     }
 
     @Override
@@ -62,13 +100,44 @@ public class ColorClicker extends JPanel {
         }
     }
 
+    @Override
+    public void nativeKeyPressed(NativeKeyEvent e) {
+        if (e.getKeyCode() == NativeKeyEvent.VC_ESCAPE) {
+            System.exit(0);
+        }
+    }
+
+    @Override
+    public void nativeKeyReleased(NativeKeyEvent e) {
+        // Не требуется реализовывать
+    }
+
+    @Override
+    public void nativeKeyTyped(NativeKeyEvent e) {
+        // Не требуется реализовывать
+    }
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             JFrame frame = new JFrame("Color Clicker");
             ColorClicker colorClicker = new ColorClicker();
+
+            Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+            Insets screenInsets = Toolkit.getDefaultToolkit().getScreenInsets(frame.getGraphicsConfiguration());
+
+            int taskBarHeight = screenInsets.bottom;
+            int windowWidth = screenSize.width / 2;
+            int windowHeight = screenSize.height - taskBarHeight;
+            int x = screenSize.width / 2;
+            int y = 0;
+
             frame.add(colorClicker);
-            frame.setSize(WORK_AREA.width/2 + WORK_AREA.x, WORK_AREA.height + WORK_AREA.y);
-            frame.setLocationRelativeTo(null);
+            frame.setSize(windowWidth, windowHeight);
+            frame.setLocation(x, y);
+
+            // Устанавливаем рабочую область с левой стороны окна до середины по горизонтали
+            WORK_AREA = new Rectangle(0, 0, windowWidth, windowHeight);
+
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setVisible(true);
         });
