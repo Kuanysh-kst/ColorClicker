@@ -1,6 +1,7 @@
 package org.example;
 
 import com.github.kwhat.jnativehook.GlobalScreen;
+import com.github.kwhat.jnativehook.NativeHookException;
 import com.github.kwhat.jnativehook.keyboard.NativeKeyEvent;
 import com.github.kwhat.jnativehook.keyboard.NativeKeyListener;
 
@@ -24,69 +25,105 @@ import java.awt.event.InputEvent;
 import java.awt.image.BufferedImage;
 
 
+
 public class ColorClicker extends JPanel implements NativeKeyListener {
     private static Rectangle WORK_AREA;
     private BufferedImage screenCapture;
     private final Timer timer;
-    private final JButton startStopButton;
+    private final JButton startButton;
+    private final JButton stopButton;
+    private final JButton broadcastButton;
     private boolean running = false;
 
     public ColorClicker() {
         setLayout(new BorderLayout());
 
-        startStopButton = new JButton("Старт");
-        startStopButton.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (running) {
-                    stopClicking();
-                } else {
-                    startClicking();
-                }
-            }
+        startButton = new JButton("Старт");
+        broadcastButton = new JButton("Трансляция");
+        startButton.addActionListener(e -> {
+            startClicking();
+            broadcastButton.setEnabled(false); // Отключаем кнопку трансляции при старте
         });
 
-        add(startStopButton, BorderLayout.SOUTH);
+        stopButton = new JButton("Стоп");
+        stopButton.setEnabled(false); // Изначально делаем кнопку стоп неактивной
+        stopButton.addActionListener(e -> {
+            stopClicking();
+            broadcastButton.setEnabled(true); // Включаем кнопку трансляции при остановке
+        });
 
-        timer = new Timer(10, e -> {
+
+        broadcastButton.setEnabled(false); // Изначально делаем кнопку трансляции неактивной
+        broadcastButton.addActionListener(e -> {
+            waiting();
+            startButton.setEnabled(false);
+            stopButton.setEnabled(true);
+            broadcastButton.setEnabled(false);
+            // Перерисовываем панель для обновления отображаемой области
+
+        });
+
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.add(startButton);
+        buttonPanel.add(stopButton);
+        buttonPanel.add(broadcastButton);
+        add(buttonPanel, BorderLayout.SOUTH);
+
+        timer = new Timer(50, e -> {
             try {
-                Robot robot = new Robot();
-                screenCapture = robot.createScreenCapture(WORK_AREA);
-                for (int x = 0; x < screenCapture.getWidth(); x++) {
-                    for (int y = 0; y < screenCapture.getHeight(); y++) {
-                        Color color = new Color(screenCapture.getRGB(x, y));
-                        if (ColorChecker.itsVersion2(color)) {
-                            int absoluteX = x + WORK_AREA.x;
-                            int absoluteY = y + WORK_AREA.y;
-                            robot.mouseMove(absoluteX, absoluteY);
-                            robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
-                            robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+                if (running) {
+                    Robot robot = new Robot();
+                    screenCapture = robot.createScreenCapture(WORK_AREA);
+                    for (int x = 0; x < screenCapture.getWidth(); x++) {
+                        for (int y = 0; y < screenCapture.getHeight(); y++) {
+                            Color color = new Color(screenCapture.getRGB(x, y));
+                            if (ColorChecker.itsVersion2(color)) {
+                                int absoluteX = x + WORK_AREA.x;
+                                int absoluteY = y + WORK_AREA.y;
+                                robot.mouseMove(absoluteX, absoluteY);
+                                robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
+                                robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+                            }
                         }
                     }
+                    repaint(); // Перерисовываем панель для обновления отображаемой области
+                }else {
+                    Robot robot = new Robot();
+                    screenCapture = robot.createScreenCapture(WORK_AREA);
+                    repaint(); // Перерисовываем панель для обновления отображаемой области
                 }
-                repaint();
             } catch (AWTException ex) {
                 ex.printStackTrace();
             }
         });
+        timer.start();
 
         try {
             GlobalScreen.registerNativeHook();
             GlobalScreen.addNativeKeyListener(this);
-        } catch (Exception ex) {
+        } catch (NativeHookException ex) {
             ex.printStackTrace();
         }
     }
 
     private void startClicking() {
         timer.start();
-        startStopButton.setText("Стоп");
+        startButton.setEnabled(false); // Делаем кнопку старт неактивной при запуске
+        stopButton.setEnabled(true); // Включаем кнопку стоп при запуске
         running = true;
     }
 
     private void stopClicking() {
         timer.stop();
-        startStopButton.setText("Старт");
+        startButton.setEnabled(true); // Включаем кнопку старт при остановке
+        stopButton.setEnabled(false); // Делаем кнопку стоп неактивной при остановке
+        running = false;
+    }
+
+    private void waiting() {
+        timer.start();
+        startButton.setEnabled(true); // Включаем кнопку старт при остановке
+        stopButton.setEnabled(false); // Делаем кнопку стоп неактивной при остановке
         running = false;
     }
 
@@ -104,18 +141,17 @@ public class ColorClicker extends JPanel implements NativeKeyListener {
     public void nativeKeyPressed(NativeKeyEvent e) {
         if (e.getKeyCode() == NativeKeyEvent.VC_ESCAPE) {
             System.exit(0);
+        } else if (e.getKeyCode() == NativeKeyEvent.VC_TAB) {
+            stopClicking();
+            broadcastButton.setEnabled(true);
         }
     }
 
     @Override
-    public void nativeKeyReleased(NativeKeyEvent e) {
-        // Не требуется реализовывать
-    }
+    public void nativeKeyReleased(NativeKeyEvent e) {}
 
     @Override
-    public void nativeKeyTyped(NativeKeyEvent e) {
-        // Не требуется реализовывать
-    }
+    public void nativeKeyTyped(NativeKeyEvent e) {}
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
@@ -128,15 +164,19 @@ public class ColorClicker extends JPanel implements NativeKeyListener {
             int taskBarHeight = screenInsets.bottom;
             int windowWidth = screenSize.width / 2;
             int windowHeight = screenSize.height - taskBarHeight;
-            int x = screenSize.width / 2;
+            int x = 0;
             int y = 0;
 
             frame.add(colorClicker);
             frame.setSize(windowWidth, windowHeight);
             frame.setLocation(x, y);
 
-            // Устанавливаем рабочую область с левой стороны окна до середины по горизонтали
-            WORK_AREA = new Rectangle(0, 0, windowWidth, windowHeight);
+            // Устанавливаем рабочую область по центру окна
+            int workAreaWidth = 350; // Ширина зеленой рабочей области
+            int workAreaHeight = 550; // Высота зеленой рабочей области
+            int workAreaX = (screenSize.width / 2) + (windowWidth - workAreaWidth) / 2;
+            int workAreaY = (windowHeight - workAreaHeight) / 2;
+            WORK_AREA = new Rectangle(workAreaX, workAreaY, workAreaWidth, workAreaHeight);
 
             frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
             frame.setVisible(true);
