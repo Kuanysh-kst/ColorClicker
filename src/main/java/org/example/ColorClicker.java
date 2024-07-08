@@ -77,7 +77,7 @@ public class ColorClicker extends JPanel implements NativeKeyListener {
                     for (int x = 0; x < screenCapture.getWidth(); x++) {
                         for (int y = 0; y < screenCapture.getHeight(); y++) {
                             Color color = new Color(screenCapture.getRGB(x, y));
-                            if (ColorChecker.itsVersion2(color)) {
+                            if (ColorChecker.itsVersion1(color)) {
                                 int absoluteX = x + WORK_AREA.x;
                                 int absoluteY = y + WORK_AREA.y;
                                 robot.mouseMove(absoluteX, absoluteY);
@@ -173,7 +173,7 @@ public class ColorClicker extends JPanel implements NativeKeyListener {
 
             // Устанавливаем рабочую область по центру окна
             int workAreaWidth = 350; // Ширина зеленой рабочей области
-            int workAreaHeight = 550; // Высота зеленой рабочей области
+            int workAreaHeight = 480; // Высота зеленой рабочей области
             int workAreaX = (screenSize.width / 2) + (windowWidth - workAreaWidth) / 2;
             int workAreaY = (windowHeight - workAreaHeight) / 2;
             WORK_AREA = new Rectangle(workAreaX, workAreaY, workAreaWidth, workAreaHeight);
