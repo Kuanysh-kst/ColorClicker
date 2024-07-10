@@ -12,6 +12,8 @@ public class ColorChecker {
         map.put(new Color(121, 251, 36), true);
         map.put(new Color(231, 251, 173), true);
         map.put(new Color(187, 239, 8), true);
+        map.put(new Color(239, 105, 118), true);
+        map.put(new Color(225, 92, 107), true);
 
         return map.getOrDefault(color, false);
     }

@@ -23,7 +23,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.InputEvent;
 import java.awt.image.BufferedImage;
-
+import java.time.Instant;
 
 
 public class ColorClicker extends JPanel implements NativeKeyListener {
@@ -34,6 +34,7 @@ public class ColorClicker extends JPanel implements NativeKeyListener {
     private final JButton stopButton;
     private final JButton broadcastButton;
     private boolean running = false;
+    private Instant lastClickTime = Instant.now();
 
     public ColorClicker() {
         setLayout(new BorderLayout());
@@ -52,7 +53,6 @@ public class ColorClicker extends JPanel implements NativeKeyListener {
             broadcastButton.setEnabled(true); // Включаем кнопку трансляции при остановке
         });
 
-
         broadcastButton.setEnabled(false); // Изначально делаем кнопку трансляции неактивной
         broadcastButton.addActionListener(e -> {
             waiting();
@@ -60,7 +60,6 @@ public class ColorClicker extends JPanel implements NativeKeyListener {
             stopButton.setEnabled(true);
             broadcastButton.setEnabled(false);
             // Перерисовываем панель для обновления отображаемой области
-
         });
 
         JPanel buttonPanel = new JPanel();
@@ -72,6 +71,7 @@ public class ColorClicker extends JPanel implements NativeKeyListener {
         timer = new Timer(50, e -> {
             try {
                 if (running) {
+                    boolean foundColor = false;
                     Robot robot = new Robot();
                     screenCapture = robot.createScreenCapture(WORK_AREA);
                     for (int x = 0; x < screenCapture.getWidth(); x++) {
@@ -83,11 +83,24 @@ public class ColorClicker extends JPanel implements NativeKeyListener {
                                 robot.mouseMove(absoluteX, absoluteY);
                                 robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
                                 robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+                                lastClickTime = Instant.now();
+                                foundColor = true;
+                                break;
                             }
                         }
+                        if (foundColor) break;
+                    }
+                    if (!foundColor && Instant.now().isAfter(lastClickTime.plusSeconds(5))) {
+                        // Click at a specific location if no color is found within 5 seconds
+                        int clickX = WORK_AREA.x + WORK_AREA.width / 2; // Example: center of the WORK_AREA
+                        int clickY = WORK_AREA.y + WORK_AREA.height / 3 + WORK_AREA.height / 20 + WORK_AREA.height / 2; // Example: center of the WORK_AREA
+                        robot.mouseMove(clickX, clickY);
+                        robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
+                        robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+                        lastClickTime = Instant.now();
                     }
                     repaint(); // Перерисовываем панель для обновления отображаемой области
-                }else {
+                } else {
                     Robot robot = new Robot();
                     screenCapture = robot.createScreenCapture(WORK_AREA);
                     repaint(); // Перерисовываем панель для обновления отображаемой области
